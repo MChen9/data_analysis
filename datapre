@@ -1,0 +1,113 @@
+
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+import numpy as np
+
+data = pd.read_csv('citydata34.csv',header = 1)
+data.columns = ['city_year','city','year','permanent population',
+                'household','employed population','2nd employed pop',
+                '3rd employed pop','pupil population','urban area','urban built_up area',
+                'road area','GDP','instituional balance','resident balance','institutional loan balance',
+                'total volume of retail sales','2nd prod value','3rd prod value',
+                'fiscal revenue','fiscal expenditure','fixed asset investment','real estate investment']
+beijing = data[data['city']=='北京'][['GDP','year']]
+shanghai = data[data['city']=='上海'][['GDP','year']]
+shenzhen = data[data['city']=='深圳'][['GDP','year']]
+plt.figure(1)
+plt.plot(beijing['year'],beijing['GDP'],marker = '*',label ='Beijing')
+plt.plot(shanghai['year'],shanghai['GDP'],marker = '+',label ='Shanghai')
+plt.plot(shenzhen['year'],shenzhen['GDP'],marker = 'o',label ='Shenzhen')
+plt.xlabel('YEAR')
+plt.ylabel('GDP(*10000)')
+plt.legend()
+plt.title('Trend Line of GDP')
+plt.close()
+
+corr = data.corr(method='spearman')
+# LABEL = ['A','B','C','D','E','F','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W']
+cmap = sns.diverging_palette(220, 20, sep=20, as_cmap=True)
+g = sns.heatmap(np.tril(corr), xticklabels=corr.columns.values, mask=np.tril(corr) == 0,
+                yticklabels=corr.columns.values,cmap=cmap,annot=True)
+g.set_xticklabels(g.get_xticklabels(), rotation=90)
+g.set_yticklabels(g.get_yticklabels(), rotation=0)
+plt.close()
+
+feature_list = corr.columns[abs(corr.loc['GDP']) > 0.8].values.tolist()
+print(feature_list)   # the results of correlation, threshold = 0.8
+
+
+# L1 Regularization
+
+
+# f= data[(data['city']=='北京')|(data['city']=='上海')|(data['city']=='深圳')]
+f_data = data.drop(columns=['GDP','year','city','city_year']).values   # features data
+#year_ = data[data['city']=='北京']['year']
+f_data_train = f_data[0:240,:]
+f_data_test = f_data[240:]
+l_data = data['GDP'].values
+l_data_train = l_data[0:240]
+l_data_test = l_data[240:]
+from sklearn import linear_model
+reg = linear_model.Lasso(alpha = 1)
+reg.fit(f_data_train, l_data_train)
+predict_data = reg.predict(f_data_test)
+reg.score(f_data,l_data)
+print(reg.coef_)
+#-----prediction
+l_shanghai = data[data['city']=='深圳']['GDP'].values
+testdf=data.drop(columns=['GDP','year','city_year'])
+plt.figure(1)
+plt.plot(data[data['city']=='深圳']['year'],l_shanghai,marker = 'o',label = 'Shenzhen_real data')
+plt.plot(data[data['city']=='深圳']['year'],reg.predict(testdf[testdf['city']=='深圳'].drop('city',axis=1)),marker = '*', label = 'Shenzhen_predicted data')
+plt.xlabel('YEAR')
+plt.ylabel('GDP(*10000)')
+plt.legend()
+plt.title('Trend Line of GDP')
+plt.show()
+# Since instances is far less than features, the approximation is nearly fixed
+
+'''removing features with low variance'''
+# from sklearn.feature_selection import VarianceThreshold
+sd_data = data.std(axis=0)
+GDP_mean_var_ratio = data['GDP'].std()/data['GDP'].mean()    # GDP changes as threshold
+data_mean_var_ratio = data.std(axis=0).values/data.mean(axis=0).values
+RemainCols=data.columns[0:2].values.tolist()+data.columns[2:][data_mean_var_ratio>GDP_mean_var_ratio].values.tolist()
+RemainDf=data[RemainCols]
+pass
+
+data_for_mean = RemainDf.drop(columns=['GDP','city_year'])
+beijing_feature_data = data_for_mean[data['city']=='北京']
+feature_mean = beijing_feature_data.mean(axis=0)
+
+objects = list(feature_mean.index)
+y_pos = np.arange(len(objects))
+plt.bar(y_pos, feature_mean,align='center', alpha=0.5)
+plt.yticks(y_pos, objects)
+#plt.show()
+
+'''univariate features selection'''
+from sklearn.feature_selection import SelectPercentile, f_classif
+selector = SelectPercentile(f_classif, percentile=10)
+selector.fit(f_data_train,l_data_train)
+scores = -np.log10(selector.pvalues_)
+scores /= scores.max()
+fig, ax = plt.subplots()
+newdf=data.groupby('city').mean().loc[['上海','深圳','北京']].T
+newdf.columns=['Shanghai','ShenZheng','Beijing']
+newdf.iloc[0:10].plot(kind='bar',sharey=True,color=['r','g','b'])
+newdf.iloc[10:].plot(kind='bar',sharey=True,color=['r','g','b'])
+a=1
+pass
+'''
+from sklearn.linear_model import Lasso
+from sklearn.metrics import r2_score
+alpha = 0.1
+lasso = Lasso(alpha=alpha)
+
+y_pred_lasso = lasso.fit(f_beijing_train, l_beijing_train).predict(f_beijing_test)
+r2_score_lasso = r2_score(l_beijing_test, y_pred_lasso)
+print(lasso)
+print("r^2 on test data : %f" % r2_score_lasso)
+'''
+pass
